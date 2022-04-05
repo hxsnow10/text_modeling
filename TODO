@@ -1,0 +1,6 @@
+TODO
+=======
+* 数据模块目前没加进来，减小包大小；需要独立引入
+* py3适配
+* cnn for seq_modeling 有个问题， window不能只考虑前面的，还有考虑后面的
+* data: shuffle, 提前线程处理存储，返回的格式为{name : value}
