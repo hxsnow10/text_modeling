@@ -9,6 +9,8 @@
 
 2. 每次MR，在最前面插入相关的release_notes，一般把修正版号+1
 ```
+## Release 0.1.2 - 2022.4.20
+* 增加了attention, transformer, batch_norm等结构
 
 ## Release 0.1.1 - 2022.4.10
 对文件结构、风格进行优化。
