@@ -20,7 +20,8 @@ import tensorflow as tf
 
 from cnn import multi_filter_sizes_cnn, multi_filter_sizes_cnn_debug
 from rnn import rnn_func
-from ..utils.base import get_func_args
+from regular import l2_loss, l1_loss
+from utils.base import get_func_args
 
 
 class SubNet(object):
@@ -221,6 +222,17 @@ class SumConcat(SubNet):
         return words_vec
 
 
+class Dropout(SubNet):
+    """dropout"""
+
+    def __init__(self, dropout_ratio):
+        self.dropout_ratio = dropout_ratio
+        super(Dropout, self).__init__()
+
+    def __call__(self, inputs):
+        return tf.nn.dropout(inputs, self.dropout_ratio)
+
+
 class Rnn(SubNet):
     """rnn module"""
 
@@ -302,9 +314,7 @@ class ExclusiveTagOutputs(SubNet):
                     axis=1)
                 losses = losses * weights
 
-            l2_loss = tf.add_n([tf.cast(tf.nn.l2_loss(v), tf.float32)
-                               for v in tf.trainable_variables() if 'bias' not in v.name])
-            loss = tf.reduce_mean(losses) + self.l2_lambda * l2_loss
+            loss = tf.reduce_mean(losses) + l2_loss(self.l2_lambda)
         tf.summary.scalar("loss", loss)
         return predictions, loss
 
