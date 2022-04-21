@@ -17,12 +17,7 @@ bar = foo.FunctionBar()
 '''
 generate multi sent data for model like hs_rnn_attn
 '''
-import os
-import sys
-from itertools import islice
 
-from tf_utils.data import (LineBasedDataset, label_line_processing,
-                           sequence_line_processing, split_line_processing)
 
 sys.path.append('..')
 

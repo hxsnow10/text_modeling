@@ -17,6 +17,8 @@ bar = foo.FunctionBar()
 '''
 sequence tagging(small) NER
 '''
+
+
 import json
 import os
 import sys
@@ -28,7 +30,7 @@ from utils.word2vec import getw2v
 
 sys.path.append("..")
 
-default_batch_size = 100
+default_batch_size = 1
 
 
 def now():
@@ -37,15 +39,15 @@ def now():
 
 def get_config(ceph_path="/ceph_ai", mode="train", branch="develop"):
 
-    default_batch_size = 100
+    default_batch_size = 1
 
     zh_words_vec = getw2v(
-        vec_path=None,
+        vec_path="/ceph_ai/xiahong/data/w2v/bert/words_unq.txt.bert.vec",
         trainable=True,
-        vocab_path="/ceph_ai/xiahong/data/segment_corpus/pos_tokens/train_vocab.txt",
-        vocab_skip_head=False,
-        max_vocab_size=500000,
-        vec_size=108)  # generate vocab, vocab_size, init_emb, vec_size
+        vocab_path="/ceph_ai/xiahong/data/w2v/bert/words_unq.txt.bert.vec",
+        vocab_skip_head=True,
+        max_vocab_size=None,
+        vec_size=768)  # generate vocab, vocab_size, init_emb, vec_size
 
     class Config():
 
@@ -74,17 +76,27 @@ def get_config(ceph_path="/ceph_ai", mode="train", branch="develop"):
                 seq_len, sub_seq_len = 20, 5
                 data_type = "ner"
                 names = ["input_zh_x", "input_zh_y_pos", "input_zh_x_length"]
-                split = ' '
 
             task2configs = {"pos": pos_data}
             # train_sampling_args =
 
         class model_config():
 
-            class crf_args():
-                uni_prob_shape = [len(zh_words_vec.vocab), 108]
-                init_uni_prob = None
+            class word2vec_args():
+                init_emb = zh_words_vec.init_emb
+                w2v_shape = None
+                sub_init_emb = None
+                sub_w2v_shape = None
+
+            class rnn_args():
                 pass
+
+            class rnn_args2():
+                rnn_cell = 'lstm'
+                cell_size = 600
+                rnn_layer_num = 1
+                attn_type = None
+                bi = True
 
             class outputs_args_pos():
                 objects = "seq_tag"
@@ -93,9 +105,9 @@ def get_config(ceph_path="/ceph_ai", mode="train", branch="develop"):
 
             class train_args():
                 learning_method = "adam_decay"
-                start_learning_rate = 0.01
+                start_learning_rate = 0.003
                 decay_steps = 6000
-                decay_rate = 0.8
+                decay_rate = 0.75
                 grad_clip = 5
 
             placeholders = [
@@ -105,21 +117,14 @@ def get_config(ceph_path="/ceph_ai", mode="train", branch="develop"):
                 ("dropout", tf.float32, None)
             ]
 
-            net_crf = [  # 这里输入输出的name表示self.name,而不是计算图中的名字
-                [("input_zh_x", "input_zh_y_pos", "input_zh_x_length"), "CRF",
-                 crf_args, "crf", ("predictions_zh_pos", "loss_zh_pos")],
+            net = [  # 这里输入输出的name表示self.name,而不是计算图中的名字
+                [("input_zh_x", ), "Word2Vec",
+                 word2vec_args, "word2vec", ("words_vec",)],
+                [("words_vec", "input_zh_y_pos", "input_zh_x_length"), "Outputs",
+                 outputs_args_pos, "output_pos", ("predictions_zh_pos", "loss_zh_pos")],
                 [("loss_zh_pos",), "TrainOp", train_args,
                  "train2", ("train_op_zh_pos", "lr")],
             ]
-
-            net_ = [  # 这里输入输出的name表示self.name,而不是计算图中的名字
-                [("input_zh_x", "input_zh_y_pos", "input_zh_x_length"), "CRF",
-                 crf_args, "crf", ("predictions_zh_pos", "loss_zh_pos")],
-                [("loss_zh_pos",), "TrainOp", train_args,
-                 "train2", ("train_op_zh_pos", "lr")],
-            ]
-
-            net = net_crf
 
             train_task2io = {
                 "pos": {
@@ -153,7 +158,7 @@ def get_config(ceph_path="/ceph_ai", mode="train", branch="develop"):
                 allow_soft_placement=True,
                 log_device_placement=False)
             lrs = ["lr"]
-            start_learning_rate = 0.01
+            start_learning_rate = 0.003
             decay_steps = 2
             decay_rate = 0.75
             ask_for_del = False
@@ -165,7 +170,6 @@ def get_config(ceph_path="/ceph_ai", mode="train", branch="develop"):
             top_log_path = ceph_path + '/xiahong/LOG'
             model_dir = ceph_path + \
                 '/xiahong/RESULT/ner/{}/{}v2/model/{}'.format(branch, tm, suffix)
-            # model_dir = '/tmp/xiahong/model0527'
             summary_dir = ceph_path + \
                 '/xiahong/RESULT/ner/{}/{}v2/log/{}'.format(branch, tm, suffix)
             model_path = os.path.join(model_dir, 'model')

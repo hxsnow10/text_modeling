@@ -238,7 +238,12 @@ def decode_index(z, a):
     return y
 
 
-def parse_text_cnn_index(filter_sizes, filter_nums, indexs, batch_size, seq_len):
+def parse_text_cnn_index(
+        filter_sizes,
+        filter_nums,
+        indexs,
+        batch_size,
+        seq_len):
     """get index from cnn
     """
     conv_shapes = [[batch_size, seq_len - size + 1, 1, num]

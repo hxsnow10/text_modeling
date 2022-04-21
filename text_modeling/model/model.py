@@ -31,11 +31,30 @@ A general Model controled by parameter and config
 
 
 class GeneralModel(object):
-    def __init__(self, sess, config):
+
+    def __init__(
+            self,
+            sess,
+            placeholders,
+            net,
+            train_task2io,
+            predict_task2io):
+        """
+        Args:
+            sess : tf sess
+            placeholders: input for net
+            net: net
+            train_task2io
+            predict_task2io
+        """
         self.sess = sess
-        self.config = config
-        self.build_placeholders(config.placeholders)
-        self.build_net(config.net)
+        self.placeholders = placeholders
+        self.net = net
+        self.train_task2io = train_task2io
+        self.predict_task2io = predict_task2io
+
+        self.build_placeholders(placeholders)
+        self.build_net(net)
         self.build_others()
 
     def build_placeholders(self, placeholders):
@@ -85,7 +104,7 @@ class GeneralModel(object):
                         self,
                         name) for name in name_list} for part,
                 name_list in io.iteritems()} for task,
-            io in self.config.train_task2io.iteritems()}
+            io in self.train_task2io.iteritems()}
         self.predict_task2io = {
             task: {
                 part: {
@@ -93,7 +112,7 @@ class GeneralModel(object):
                         self,
                         name) for name in name_list} for part,
                 name_list in io.iteritems()} for task,
-            io in self.config.predict_task2io.iteritems()}
+            io in self.predict_task2io.iteritems()}
 
         def indent(text, indent=8):
             fstring = ' ' * indent + '{}'

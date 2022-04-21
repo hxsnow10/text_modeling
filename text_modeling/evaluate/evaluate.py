@@ -17,6 +17,7 @@ import numpy as np
 from sklearn.metrics import (classification_report, f1_score, precision_score,
                              recall_score)
 
+
 def evaluate_clf(
         sess,
         model,
@@ -162,7 +163,7 @@ def evaluate_seq_tag(
             tp_num += len(set(y) & set(p_y))
         total_y = total_y + process(input_y, lengths)
         total_predict_y = total_predict_y + process(predict_y, lengths)
-    print "avg time = ", total_time/num
+    print "avg time = ", total_time / num
     seq_p, seq_r = tp_num * 1.0 / p_num, tp_num * 1.0 / t_num
     # seq_p,seq_r = 0, 0
 

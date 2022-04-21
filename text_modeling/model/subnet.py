@@ -19,8 +19,8 @@ config define network by net-name and superparams
 import tensorflow as tf
 
 from cnn import multi_filter_sizes_cnn, multi_filter_sizes_cnn_debug
+from regular import l1_loss, l2_loss
 from rnn import rnn_func
-from regular import l2_loss, l1_loss
 from utils.base import get_func_args
 
 

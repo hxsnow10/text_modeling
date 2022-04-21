@@ -19,49 +19,29 @@ from shutil import copy
 
 import tensorflow as tf
 
-from data import load_data
-from evaluate import evaluate_clf, evaluate_seq_tag, evaluate_tag
-from model import GeneralModel
+from evaluate import evaluate
 from utils import check_dir, load_config
 from utils.tf_utils import model_analyzer, show_params
 
-print "当前目录:", os.getcwd()
-os.chdir(sys.path[0])
-print "修改后当前目录:", os.getcwd()
-
-
-global config
-
-'''
-assumpation:
-* load_d train_data, dev_data
-* model has init, loss, train_op, step_summaries, saver
-'''
+cdir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(cdir, ".."))
 
 
 def now():
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(time.time()))
 
 
-def test(sess, model, test_data, tags):
-    """eval model on test_data.
-
-    evaluater is designed by config.object.
-    """
-    evaluate = evaluate_clf
-    if config.objects == "tag":
-        if config.tag_exclusive:
-            evaluate = evaluate_clf
-        else:
-            evaluate = evaluate_tag
-    else:
-        if config.tag_exclusive:
-            evaluate = evaluate_seq_tag
-        else:
-            pass
-            # TODO:raise error
-    score, test_data_metrics = evaluate(sess, model, test_data, tags)
-    print score, test_data_metrics
+def check(train_config):
+    check_dir(
+        train_config.summary_dir,
+        train_config.ask_for_del,
+        train_config.restore)
+    check_dir(
+        train_config.model_dir,
+        train_config.ask_for_del,
+        train_config.restore)
+    copy(args.config_path, train_config.summary_dir)
+    copy(args.config_path, train_config.model_dir)
 
 
 def train(
@@ -70,13 +50,23 @@ def train(
         train_data,
         dev_datas=None,
         test_datas=None,
-        summary_writers=None,
         tags=None,
-        config=None):
+        train_config=None):
     """train model with data.
     """
-    out = open(config.top_log_path, "a+")
-    out.write(now() + '\t' + config.model_dir + '\tstart_train\n')
+    summary_writers = {
+        (task_name, sub_path): tf.summary.FileWriter(
+            os.path.join(
+                train_config.summary_dir,
+                task_name,
+                sub_path),
+            sess.graph,
+            flush_secs=5)
+        for task_name in train_task2io
+        for sub_path in ['train', 'dev']}
+    check(train_config)
+    out = open(train_config.top_log_path, "a+")
+    out.write(now() + '\t' + train_config.model_dir + '\tstart_train\n')
     out.close()
     best_dev, really_best_test = 0, 0
     best_dev_metrics = None
@@ -89,23 +79,23 @@ def train(
     show_params(profiler)
 
     step = 0
-    model.train_saver.save(sess, config.model_path, global_step=0)
-    model.train_saver.save(sess, config.model_path)
+    model.train_saver.save(sess, train_config.model_path, global_step=0)
+    model.train_saver.save(sess, train_config.model_path)
     # score,dev_data_metrics = evaluate(sess,model,dev_data,tags)
 
     def evals(epoch, step, datas):
         # eval one time.
         for task_name, dev_data in datas.iteritems():
-            out = open(config.top_log_path, "a+")
-            out_line = '\t' + now() + '\t' + config.model_dir +\
+            out = open(train_config.top_log_path, "a+")
+            out_line = '\t' + now() + '\t' + train_config.model_dir +\
                 '\tstart_eval' + str(epoch) + '\n'
             out.write(out_line)
             out.close()
-            if config.task_type[task_name] == "tag_exclusive":
+            if train_config.task_type[task_name] == "tag_exclusive":
                 evaluate = evaluate_clf
-            elif config.task_type[task_name] == "tag_noexclusive":
+            elif train_config.task_type[task_name] == "tag_noexclusive":
                 evaluate = evaluate_tag
-            elif config.task_type[task_name] == "seq_tag":
+            elif train_config.task_type[task_name] == "seq_tag":
                 evaluate = evaluate_seq_tag
             score, metrics = evaluate(
                 sess, model, task_name, dev_data, target_names=tags[task_name])
@@ -117,22 +107,23 @@ def train(
                     ])
                     writer.add_summary(summary, global_step=step)
             add_summary(summary_writers[(task_name, 'dev')], metrics, step)
-            model.train_saver.save(sess, config.model_path, global_step=step)
+            model.train_saver.save(
+                sess, train_config.model_path, global_step=step)
         return score, metrics
-    for epoch in range(config.epoch_num):
-        if epoch % config.decay_steps == 0:
+    for epoch in range(train_config.epoch_num):
+        if epoch % train_config.decay_steps == 0:
             import math
-            for lr in config.lrs:
+            for lr in train_config.lrs:
                 sess.run(
                     tf.assign(
                         getattr(
                             model,
                             lr),
-                        config.start_learning_rate *
+                        train_config.start_learning_rate *
                         math.pow(
-                            config.decay_rate,
+                            train_config.decay_rate,
                             epoch /
-                            config.decay_steps)))
+                            train_config.decay_steps)))
 
         for k, (task_name, inputs) in enumerate(train_data):
             inputs["dropout"] = 1.0
@@ -143,7 +134,7 @@ def train(
                     name): inputs[name]
                 for name in model.train_task2io[task_name]["inputs"].keys()}
             out = model.train_task2io[task_name]["outputs"].values()
-            if step % config.summary_steps != 0:
+            if step % train_config.summary_steps != 0:
                 out_v = sess.run(out, feed_dict=fd)
             else:
                 out_v = sess.run(
@@ -178,61 +169,6 @@ def train(
             print '-' * 40
 
         else:
-            model.train_saver.save(sess, config.model_path, global_step=step)
+            model.train_saver.save(
+                sess, train_config.model_path, global_step=step)
     return None
-
-
-def main(mode):
-    data_config, model_config, train_config = \
-        config.data_config, config.model_config, config.train_config
-    check_dir(
-        train_config.summary_dir,
-        train_config.ask_for_del,
-        train_config.restore)
-    check_dir(
-        train_config.model_dir,
-        train_config.ask_for_del,
-        train_config.restore)
-    copy(args.config_path, train_config.summary_dir)
-    copy(args.config_path, train_config.model_dir)
-    data = load_data(data_config)
-
-    with tf.Session(config=train_config.session_conf) as sess:
-        # use tf.name_scope to manager variable_names
-        model = GeneralModel(sess, model_config)
-        model.inits(sess, train_config.restore)
-        model.save_info(train_config.model_dir)
-
-        summary_writers = {
-            (task_name, sub_path): tf.summary.FileWriter(
-                os.path.join(
-                    train_config.summary_dir,
-                    task_name,
-                    sub_path),
-                sess.graph,
-                flush_secs=5)
-            for task_name in model_config.train_task2io
-            for sub_path in ['train', 'dev']}
-
-        if mode == "train":
-            train(sess, model,
-                  data.train_data, data.dev_data, data.test_data,
-                  summary_writers=summary_writers,
-                  config=train_config, tags=data.tags)
-        else:
-            test(sess, model, data.dev_data, data.tags.vocab)
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--config_path", default="./config.py")
-    parser.add_argument("-r", "--restore", type=str, default="")
-    parser.add_argument("-c", "--ceph_path", type=str, default="/ceph_ai")
-    parser.add_argument("-b", "--branch", type=str, default="test")
-    parser.add_argument("-m", "--mode", type=str, default="train")
-    args = parser.parse_args()
-    global config
-    config = load_config(args.config_path, branch=args.branch)
-    config.ceph_path = args.ceph_path
-    config.train_config.restore = args.restore
-    main(args.mode)
