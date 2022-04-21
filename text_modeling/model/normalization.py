@@ -19,9 +19,8 @@ tf.keras.layers.InstanceNormalization
 tfa.layers.WeightNormalization
 """
 
-if __name__=='__main__':
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--config_path", default="./config.py")
     args = parser.parse_args()
     main(args.config_path)
-

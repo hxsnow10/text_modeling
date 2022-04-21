@@ -9,6 +9,10 @@
 
 2. 每次MR，在最前面插入相关的release_notes，一般把修正版号+1
 ```
+## Release 0.1.3 - 2022.4.21
+* 修改了用户的接口，从半数据半py的config换成了更加灵活的api调用的脚本
+方便比如keras的联合搭建，而不用进行冗余封装。
+
 ## Release 0.1.2 - 2022.4.20
 * 增加了attention, transformer, batch_norm等结构
 

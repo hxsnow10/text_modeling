@@ -20,6 +20,20 @@ from os import makedirs
 from shutil import rmtree
 
 
+def now():
+    return time.strftime("%Y%m%d%H", time.localtime(time.time()))
+
+
+def get_emb(path, words_num, vec_size=2):
+    emb = []
+    for line in open(path):
+        vals = [float(x) for x in line.strip().split(' ')]
+        emb.append(vals)
+    rval = np.array(emb + [[0, ] * vec_size, ] *
+                    (words_num - len(emb)), dtype=np.float32)
+    return rval
+
+
 def get_func_args(depth=1):
     """get variable of tempolary env,
         if depth=1, this is equal to func args.

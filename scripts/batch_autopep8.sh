@@ -11,9 +11,9 @@ format_files=`find "${folder}" -type f -regex ".*\.\(py\)" -not -path "./source/
 for file in ${format_files[@]};
 do
     echo ${file}
-    pyformat ${file}
-    # autopep8 --in-place --aggressive --aggressive ${file}
-    # isort ${file}
+    # pyformat ${file}
+    autopep8 --in-place --aggressive --aggressive ${file}
+    isort ${file}
 done
 
 

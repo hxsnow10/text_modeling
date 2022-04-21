@@ -27,22 +27,22 @@ where to apply dropout:
     * after embeeding layer:  I don't think it's good, or we can set ratio is small
     * after cnn-pooling layer: good
     * bafore cnn-pooling layer: as pooling itself can reduce noise, this may not that infuenced.
-""" 
+"""
 
+import argparse
 import os
 import sys
 
-import argparse
-
 import tensorflow as tf
+
 
 def l2_loss(l2_lambda):
     l2_loss = l2_lambda * tf.add_n([tf.cast(tf.nn.l2_loss(v), tf.float32)
-                       for v in tf.trainable_variables() if 'bias' not in v.name])
+                                    for v in tf.trainable_variables() if 'bias' not in v.name])
     return l2_loss
+
 
 def l1_loss(l1_lambda):
     l1_loss = l1_lambda * tf.add_n([tf.cast(tf.reduce_sum(tf.abs(v)), tf.float32)
-                       for v in tf.trainable_variables() if 'bias' not in v.name])
+                                    for v in tf.trainable_variables() if 'bias' not in v.name])
     return l1_loss
-

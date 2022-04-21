@@ -16,10 +16,10 @@ transformer: https://zhuanlan.zhihu.com/p/118503318
 TODO:我会对整体框架做一个修改，直接使用keras的接口。
 """
 
+import argparse
 import os
 import sys
 
-import argparse
 
 class PositionWiseFeedForward(Layer):
 
@@ -62,6 +62,7 @@ class PositionWiseFeedForward(Layer):
     def compute_output_shape(self, input_shape):
         return self._model_dim
 
+
 class LayerNormalization(Layer):
 
     def __init__(self, epsilon=1e-8, **kwargs):
@@ -88,10 +89,19 @@ class LayerNormalization(Layer):
     def compute_output_shape(self, input_shape):
         return input_shape
 
+
 class Transformer(Layer):
 
-    def __init__(self, vocab_size, model_dim, 
-            n_heads=8, encoder_stack=6, decoder_stack=6, feed_forward_size=2048, dropout_rate=0.1, **kwargs):
+    def __init__(
+            self,
+            vocab_size,
+            model_dim,
+            n_heads=8,
+            encoder_stack=6,
+            decoder_stack=6,
+            feed_forward_size=2048,
+            dropout_rate=0.1,
+            **kwargs):
         self._vocab_size = vocab_size
         self._model_dim = model_dim
         self._n_heads = n_heads
@@ -109,7 +119,6 @@ class Transformer(Layer):
             name="embeddings")
         super(Transformer, self).build(input_shape)
 
-
     def encoder(self, inputs):
         if K.dtype(inputs) != 'int32':
             inputs = K.cast(inputs, 'int32')
@@ -117,7 +126,7 @@ class Transformer(Layer):
         masks = K.equal(inputs, 0)
         # Embeddings
         embeddings = K.gather(self.embeddings, inputs)
-        embeddings *= self._model_dim ** 0.5 # Scale
+        embeddings *= self._model_dim ** 0.5  # Scale
         # Position Encodings
         position_encodings = PositionEncoding(self._model_dim)(embeddings)
         # Embedings + Postion-encodings
@@ -127,21 +136,22 @@ class Transformer(Layer):
 
         for i in range(self._encoder_stack):
             # Multi-head-Attention
-            attention = MultiHeadAttention(self._n_heads, self._model_dim // self._n_heads)
+            attention = MultiHeadAttention(
+                self._n_heads, self._model_dim // self._n_heads)
             attention_input = [encodings, encodings, encodings, masks]
             attention_out = attention(attention_input)
             # Add & Norm
             attention_out += encodings
             attention_out = LayerNormalization()(attention_out)
             # Feed-Forward
-            ff = PositionWiseFeedForward(self._model_dim, self._feed_forward_size)
+            ff = PositionWiseFeedForward(
+                self._model_dim, self._feed_forward_size)
             ff_out = ff(attention_out)
             # Add & Norm
             ff_out += attention_out
             encodings = LayerNormalization()(ff_out)
 
         return encodings, masks
-
 
     def decoder(self, inputs):
         decoder_inputs, encoder_encodings, encoder_masks = inputs
@@ -151,33 +161,41 @@ class Transformer(Layer):
         decoder_masks = K.equal(decoder_inputs, 0)
         # Embeddings
         embeddings = K.gather(self.embeddings, decoder_inputs)
-        embeddings *= self._model_dim ** 0.5 # Scale
+        embeddings *= self._model_dim ** 0.5  # Scale
         # Position Encodings
         position_encodings = PositionEncoding(self._model_dim)(embeddings)
         # Embedings + Postion-encodings
         encodings = embeddings + position_encodings
         # Dropout
         encodings = K.dropout(encodings, self._dropout_rate)
-        
+
         for i in range(self._decoder_stack):
             # Masked-Multi-head-Attention
-            masked_attention = MultiHeadAttention(self._n_heads, self._model_dim // self._n_heads, future=True)
-            masked_attention_input = [encodings, encodings, encodings, decoder_masks]
+            masked_attention = MultiHeadAttention(
+                self._n_heads, self._model_dim // self._n_heads, future=True)
+            masked_attention_input = [
+                encodings, encodings, encodings, decoder_masks]
             masked_attention_out = masked_attention(masked_attention_input)
             # Add & Norm
             masked_attention_out += encodings
             masked_attention_out = LayerNormalization()(masked_attention_out)
 
             # Multi-head-Attention
-            attention = MultiHeadAttention(self._n_heads, self._model_dim // self._n_heads)
-            attention_input = [masked_attention_out, encoder_encodings, encoder_encodings, encoder_masks]
+            attention = MultiHeadAttention(
+                self._n_heads, self._model_dim // self._n_heads)
+            attention_input = [
+                masked_attention_out,
+                encoder_encodings,
+                encoder_encodings,
+                encoder_masks]
             attention_out = attention(attention_input)
             # Add & Norm
             attention_out += masked_attention_out
             attention_out = LayerNormalization()(attention_out)
 
             # Feed-Forward
-            ff = PositionWiseFeedForward(self._model_dim, self._feed_forward_size)
+            ff = PositionWiseFeedForward(
+                self._model_dim, self._feed_forward_size)
             ff_out = ff(attention_out)
             # Add & Norm
             ff_out += attention_out
@@ -191,11 +209,13 @@ class Transformer(Layer):
     def call(self, inputs):
         encoder_inputs, decoder_inputs = inputs
         encoder_encodings, encoder_masks = self.encoder(encoder_inputs)
-        encoder_outputs = self.decoder([decoder_inputs, encoder_encodings, encoder_masks])
+        encoder_outputs = self.decoder(
+            [decoder_inputs, encoder_encodings, encoder_masks])
         return encoder_outputs
 
     def compute_output_shape(self, input_shape):
-        return  (input_shape[0][0], input_shape[0][1], self._vocab_size)
+        return (input_shape[0][0], input_shape[0][1], self._vocab_size)
+
 
 def main():
     from tensorflow.keras.models import Model
@@ -203,12 +223,13 @@ def main():
     from tensorflow.keras.utils import plot_model
 
     vocab_size = 5000
-    max_seq_len = 256 
+    max_seq_len = 256
     model_dim = 512
 
     encoder_inputs = Input(shape=(max_seq_len,), name='encoder_inputs')
     decoder_inputs = Input(shape=(max_seq_len,), name='decoder_inputs')
-    outputs = Transformer(vocab_size, model_dim)([encoder_inputs, decoder_inputs])
+    outputs = Transformer(vocab_size, model_dim)(
+        [encoder_inputs, decoder_inputs])
     model = Model(inputs=[encoder_inputs, decoder_inputs], outputs=outputs)
 
     model.summary()

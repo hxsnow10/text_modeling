@@ -17,6 +17,8 @@ bar = foo.FunctionBar()
 '''
 sequence tagging(small) NER
 '''
+
+
 import json
 import os
 import sys

@@ -13,8 +13,7 @@ Usage:
 foo = ClassFoo()
 bar = foo.FunctionBar()
 """
-from .base import dict_reverse, dict_sub, get_vocab
-from .base import get_func_args, OrderedDefaultDict
-from .base import get_file_paths, check_dir
+from .base import (OrderedDefaultDict, check_dir, dict_reverse, dict_sub,
+                   get_file_paths, get_func_args, get_vocab)
 from .byteify import byteify
 from .load_config import load_config
